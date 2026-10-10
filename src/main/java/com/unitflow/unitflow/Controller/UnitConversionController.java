@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.unitflow.unitflow.Service.CurrencyConversionService;
 import com.unitflow.unitflow.Service.UnitConversionService;
 
 @RestController
@@ -17,10 +18,14 @@ import com.unitflow.unitflow.Service.UnitConversionService;
 public class UnitConversionController {
 
     private final UnitConversionService service;
+    private final CurrencyConversionService currencyService;
 
-    public UnitConversionController(UnitConversionService service) {
-        this.service = service;
-    }
+    public UnitConversionController(
+        UnitConversionService service,
+        CurrencyConversionService currencyService) {
+    this.service = service;
+    this.currencyService = currencyService;
+}
 
     @GetMapping("/convert")
     public ResponseEntity<?> convert(
@@ -53,4 +58,30 @@ public class UnitConversionController {
                     .body(Map.of("error", e.getMessage()));
         }
     }
+
+    @GetMapping("/currency")
+public ResponseEntity<?> convertCurrency(
+        @RequestParam double amount,
+        @RequestParam String from,
+        @RequestParam String to) {
+
+    try {
+        double result = currencyService.convert(amount, from, to);
+
+        return ResponseEntity.ok(Map.of(
+                "amount", amount,
+                "from", from.toUpperCase(),
+                "to", to.toUpperCase(),
+                "result", result
+        ));
+
+    } catch (IllegalArgumentException e) {
+        return ResponseEntity.badRequest()
+                .body(Map.of("error", e.getMessage()));
+
+    } catch (IllegalStateException e) {
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(Map.of("error", e.getMessage()));
+    }
+}
 }
