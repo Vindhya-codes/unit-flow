@@ -1,0 +1,247 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UnitFlow | Unit Converter</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f4f6fb;
+            color: #202b3c;
+        }
+
+        header {
+            padding: 22px;
+            text-align: center;
+            background: #ffffff;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        header h1 {
+            margin: 0;
+            color: #3156c9;
+        }
+
+        header p {
+            color: #64748b;
+        }
+
+        main {
+            max-width: 520px;
+            margin: 40px auto;
+            padding: 24px;
+            background: white;
+            border-radius: 14px;
+            box-shadow: 0 5px 25px #0000000d;
+        }
+
+        label {
+            display: block;
+            margin-top: 16px;
+            margin-bottom: 7px;
+            font-weight: bold;
+        }
+
+        input, select, button {
+            width: 100%;
+            padding: 12px;
+            border-radius: 7px;
+            border: 1px solid #cbd5e1;
+            font-size: 15px;
+        }
+
+        button {
+            margin-top: 22px;
+            border: none;
+            background: #3156c9;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #2445aa;
+        }
+
+        #result {
+            margin-top: 22px;
+            padding: 16px;
+            border-radius: 8px;
+            background: #eef2ff;
+            overflow-wrap: anywhere;
+        }
+
+        #result:empty {
+            display: none;
+        }
+
+        .error {
+            color: #b42318;
+            background: #fff0ee !important;
+        }
+
+        footer {
+            text-align: center;
+            color: #64748b;
+            padding: 20px;
+            font-size: 13px;
+        }
+    </style>
+</head>
+
+<body>
+<header>
+    <h1>UnitFlow</h1>
+    <p>Simple, fast and reliable conversions</p>
+</header>
+
+<main>
+    <h2>Converter</h2>
+
+    <label for="category">Conversion category</label>
+    <select id="category">
+        <option value="length">Length</option>
+        <option value="weight">Weight</option>
+        <option value="temperature">Temperature</option>
+        <option value="currency">Money</option>
+    </select>
+
+    <label for="amount">Enter value</label>
+    <input id="amount" type="number" step="any"
+           placeholder="Enter a value">
+
+    <label for="from">From</label>
+    <select id="from"></select>
+
+    <label for="to">To</label>
+    <select id="to"></select>
+
+    <button id="convertButton" onclick="convert()">Convert</button>
+
+    <div id="result" role="status" aria-live="polite"></div>
+</main>
+
+<footer>UnitFlow · Powered by Spring Boot</footer>
+
+<script>
+    const units = {
+        length: [
+            ["km", "Kilometers"],
+            ["m", "Meters"],
+            ["cm", "Centimeters"],
+            ["mi", "Miles"]
+        ],
+        weight: [
+            ["kg", "Kilograms"],
+            ["g", "Grams"],
+            ["lb", "Pounds"]
+        ],
+        temperature: [
+            ["c", "Celsius"],
+            ["f", "Fahrenheit"],
+            ["k", "Kelvin"]
+        ],
+        currency: [
+            ["INR", "Indian Rupee"],
+            ["USD", "US Dollar"],
+            ["EUR", "Euro"],
+            ["GBP", "British Pound"],
+            ["JPY", "Japanese Yen"],
+            ["AUD", "Australian Dollar"],
+            ["CAD", "Canadian Dollar"]
+        ]
+    };
+
+    const category = document.getElementById("category");
+    const from = document.getElementById("from");
+    const to = document.getElementById("to");
+    const amount = document.getElementById("amount");
+    const result = document.getElementById("result");
+    const button = document.getElementById("convertButton");
+
+    function updateUnits() {
+        from.replaceChildren();
+        to.replaceChildren();
+
+        units[category.value].forEach(([code, name]) => {
+            from.add(new Option(name, code));
+            to.add(new Option(name, code));
+        });
+
+        if (to.options.length > 1) {
+            to.selectedIndex = 1;
+        }
+
+        result.textContent = "";
+        result.classList.remove("error");
+    }
+
+    category.addEventListener("change", updateUnits);
+
+    async function convert() {
+        result.textContent = "";
+        result.classList.remove("error");
+
+        if (amount.value.trim() === "" ||
+            !Number.isFinite(Number(amount.value))) {
+            showError("Please enter a valid number.");
+            return;
+        }
+
+        const value = Number(amount.value);
+
+        const isCurrency = category.value === "currency";
+
+        const params = new URLSearchParams({
+            [isCurrency ? "amount" : "value"]: value,
+            from: from.value,
+            to: to.value
+        });
+
+        const endpoint = isCurrency
+            ? "/api/currency"
+            : "/api/convert";
+
+        button.disabled = true;
+        button.textContent = "Converting...";
+
+        try {
+            const response = await fetch(endpoint + "?" + params);
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || "Conversion failed.");
+            }
+
+            if (!Number.isFinite(data.result)) {
+                throw new Error("The server returned an invalid result.");
+            }
+
+            result.textContent =
+                `${data.value ?? data.amount} ${data.from} = ` +
+                `${Number(data.result.toPrecision(10))} ${data.to}`;
+
+        } catch (error) {
+            showError(error.message || "Unable to connect to the server.");
+        } finally {
+            button.disabled = false;
+            button.textContent = "Convert";
+        }
+    }
+
+    function showError(message) {
+        result.textContent = message;
+        result.classList.add("error");
+    }
+
+    updateUnits();
+</script>
+</body>
+</html>
